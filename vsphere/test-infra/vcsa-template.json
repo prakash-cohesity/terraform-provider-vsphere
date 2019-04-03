@@ -1,0 +1,47 @@
+{
+    "__version": "2.13.0",
+    "new_vcsa": {
+        "esxi": {
+            "hostname": "${esxi_host}",
+            "username": "${esxi_username}",
+            "password": "${esxi_password}",
+            "deployment_network": "VM Network",
+            "datastore": "datastore1",
+            "ssl_certificate_verification": {
+                "thumbprint": "${esxi_ssl_cert_thumbprint}"
+            }
+        },
+        "appliance": {
+            "thin_disk_mode": true,
+            "deployment_option": "small",
+            "name": "vcenter"
+        },
+        "network": {
+            "ip_family": "ipv4",
+            "mode": "static",
+            "dns_servers": [
+                "8.8.8.8",
+                "8.8.4.4"
+            ],
+            "ip": "${ipv4_address}",
+            "prefix": "${ipv4_prefix}",
+            "gateway": "${ipv4_gateway}",
+            "system_name": "${network_name}"
+        },
+        "os": {
+            "password": "${os_password}",
+            "ntp_servers": "time.nist.gov",
+            "ssh_enable": true
+        },
+        "sso": {
+            "password": "${sso_password}",
+            "domain_name": "vsphere.local",
+            "first_instance": true
+        }
+    },
+    "ceip": {
+        "settings": {
+            "ceip_enabled": false
+        }
+    }
+}
