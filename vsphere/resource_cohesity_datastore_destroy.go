@@ -7,22 +7,58 @@ package vsphere
 import (
 	"github.com/hashicorp/terraform/helper/schema"
 	"github.com/hashicorp/terraform/terraform"
+
+	"github.com/terraform-providers/terraform-provider-vsphere/vsphere/internal/helper/customattribute"
+	"github.com/terraform-providers/terraform-provider-vsphere/vsphere/internal/helper/folder"
+	"github.com/terraform-providers/terraform-provider-vsphere/vsphere/internal/helper/structure"
 )
 
 func resourceCohesityDatastoreDestroy() *schema.Resource {
 	s := map[string]*schema.Schema{
+		"ds_id": {
+			Type:        schema.TypeString,
+			Description: "Datastore ID to be deleted.",
+			Required:    true,
+		},
 		"name": {
 			Type:        schema.TypeString,
+			Description: "The name of the datastore.",
 			Required:    true,
-			Description: "Name of the datastore to be destroyed.",
+		},
+		"host_system_ids": {
+			Type:        schema.TypeSet,
+			Description: "The managed object IDs of the hosts to mount the datastore on.",
+			Elem:        &schema.Schema{Type: schema.TypeString},
+			MinItems:    1,
+			Required:    true,
+		},
+		"folder": {
+			Type:          schema.TypeString,
+			Description:   "The path to the datastore folder to put the datastore in.",
+			Optional:      true,
+			ConflictsWith: []string{"datastore_cluster_id"},
+			StateFunc:     folder.NormalizePath,
+		},
+		"datastore_cluster_id": {
+			Type:          schema.TypeString,
+			Description:   "The managed object ID of the datastore cluster to place the datastore in.",
+			Optional:      true,
+			ConflictsWith: []string{"folder"},
 		},
 	}
+	structure.MergeSchema(s, schemaHostNasVolumeSpec())
+	structure.MergeSchema(s, schemaDatastoreSummary())
+
+	// Add tags schema
+	s[vSphereTagAttributeKey] = tagsSchema()
+	// Add custom attribute schema
+	s[customattribute.ConfigKey] = customattribute.ConfigSchema()
 
 	return &schema.Resource{
 		Create:        resourceCohesityDatastoreCreate,
-		Read:          resourceCohesityDatastoreRead,
-		Update:        resourceCohesityDatastoreUpdate,
-		Delete:        resourceCohesityDatastoreDelete,
+		Read:          resourceCohesityDatastoreNoOp,
+		Update:        resourceCohesityDatastoreNoOp,
+		Delete:        resourceCohesityDatastoreNoOp,
 		CustomizeDiff: resourceCohesityDatastoreCustomizeDiff,
 		Importer: &schema.ResourceImporter{
 			State: resourceCohesityDatastoreImport,
@@ -34,18 +70,14 @@ func resourceCohesityDatastoreDestroy() *schema.Resource {
 }
 
 func resourceCohesityDatastoreCreate(d *schema.ResourceData, meta interface{}) error {
-	return nil
+	id := d.Get("ds_id").(string)
+
+	d.SetId(id)
+	// Unmount the NAS datastore
+	return resourceVSphereNasDatastoreDelete(d, meta)
 }
 
-func resourceCohesityDatastoreRead(d *schema.ResourceData, meta interface{}) error {
-	return nil
-}
-
-func resourceCohesityDatastoreUpdate(d *schema.ResourceData, meta interface{}) error {
-	return nil
-}
-
-func resourceCohesityDatastoreDelete(d *schema.ResourceData, meta interface{}) error {
+func resourceCohesityDatastoreNoOp(d *schema.ResourceData, meta interface{}) error {
 	return nil
 }
 

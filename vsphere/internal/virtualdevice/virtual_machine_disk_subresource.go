@@ -1414,12 +1414,6 @@ func (r *DiskSubresource) DiffExisting() error {
 		return fmt.Errorf("virtual disk %q: %s", name, err)
 	}
 
-	// Validate storage vMotion if the datastore is changing
-	if r.HasChange("datastore_id") {
-		if err = r.validateStorageRelocateDiff(); err != nil {
-			return err
-		}
-	}
 	log.Printf("[DEBUG] %s: Normalization of existing disk diff complete", r)
 	return nil
 }
@@ -1444,8 +1438,6 @@ func (r *DiskSubresource) DiffGeneral() error {
 
 	if r.Get("attach").(bool) {
 		switch {
-		case r.Get("datastore_id").(string) == "":
-			return fmt.Errorf("datastore_id for disk %q is required when attach is set", name)
 		case r.Get("size").(int) > 0:
 			return fmt.Errorf("size for disk %q cannot be defined when attach is set", name)
 		case r.Get("eagerly_scrub").(bool):
@@ -1522,33 +1514,6 @@ func (r *DiskSubresource) normalizeDiskDatastore() error {
 	}
 
 	r.Set("datastore_id", dsID)
-	return nil
-}
-
-// validateStorageRelocateDiff validates certain storage vMotion diffs to make
-// sure they are functional. These mainly have to do with limitations
-// associated with our tracking of virtual disks via their names.
-//
-// The current limitations are:
-//
-// * Externally-attached virtual disks are not allowed to be vMotioned.
-// * Disks must match the vSphere naming convention, where the first disk is
-// named VMNAME.vmdk, and all other disks are named VMNAME_INDEX.vmdk This is a
-// validation we use for cloning as well.
-// * Any VM that has been created by a linked clone is blocked from storage
-// vMotion full stop.
-//
-// TODO: Once we have solved the disk tracking issue and are no longer tracking
-// disks via their file names, the only restriction that should remain is for
-// externally attached disks. That restriction will go away once we figure out
-// a strategy for handling when said disks have been moved OOB of the VM
-// workflow.
-func (r *DiskSubresource) validateStorageRelocateDiff() error {
-	log.Printf("[DEBUG] %s: Validating storage vMotion eligibility", r)
-	if err := r.blockRelocateAttachedDisks(); err != nil {
-		return err
-	}
-	log.Printf("[DEBUG] %s: Storage vMotion validation successful", r)
 	return nil
 }
 
