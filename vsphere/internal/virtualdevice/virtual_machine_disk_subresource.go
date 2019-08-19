@@ -34,7 +34,7 @@ future releases. To transition existing disks, rename the "name" attribute to
 
 Note that "label" does not control the name of a VMDK and does not need to bear
 the name of one on new disks or virtual machines. For more information, see the
-documentation for the label attribute at: 
+documentation for the label attribute at:
 
 https://www.terraform.io/docs/providers/vsphere/r/virtual_machine.html#label
 `
@@ -1444,8 +1444,6 @@ func (r *DiskSubresource) DiffGeneral() error {
 
 	if r.Get("attach").(bool) {
 		switch {
-		case r.Get("datastore_id").(string) == "":
-			return fmt.Errorf("datastore_id for disk %q is required when attach is set", name)
 		case r.Get("size").(int) > 0:
 			return fmt.Errorf("size for disk %q cannot be defined when attach is set", name)
 		case r.Get("eagerly_scrub").(bool):
