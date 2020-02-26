@@ -335,6 +335,22 @@ func GiBToByte(n interface{}) int64 {
 	panic(fmt.Errorf("non-integer type %T for value", n))
 }
 
+// KiBToByte returns n*1024.
+//
+// The output is returned as int64 - if another type is needed, it needs to be
+// cast. Remember that int32 overflows at around 2GiB and uint32 will overflow at 4GiB.
+func KiBToByte(n interface{}) int64 {
+	switch v := n.(type) {
+	case int:
+		return int64(v * int(1024))
+	case int32:
+		return int64(v * int32(1024))
+	case int64:
+		return v * int64(1024)
+	}
+	panic(fmt.Errorf("non-integer type %T for value", n))
+}
+
 // GBToByte returns n*1000000000.
 //
 // The output is returned as int64 - if another type is needed, it needs to be

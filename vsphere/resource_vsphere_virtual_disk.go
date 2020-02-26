@@ -18,7 +18,7 @@ import (
 )
 
 type virtualDisk struct {
-	size              int
+	size              int64
 	vmdkPath          string
 	initType          string
 	adapterType       string
@@ -35,7 +35,7 @@ func resourceVSphereVirtualDisk() *schema.Resource {
 		Delete: resourceVSphereVirtualDiskDelete,
 
 		Schema: map[string]*schema.Schema{
-			// Size in GB
+			// Size in KB
 			"size": {
 				Type:     schema.TypeInt,
 				Required: true,
@@ -111,7 +111,7 @@ func resourceVSphereVirtualDiskCreate(d *schema.ResourceData, meta interface{}) 
 	client := meta.(*VSphereClient).vimClient
 
 	vDisk := virtualDisk{
-		size: d.Get("size").(int),
+		size: d.Get("size").(int64),
 	}
 
 	if v, ok := d.GetOk("vmdk_path"); ok {
@@ -188,7 +188,7 @@ func resourceVSphereVirtualDiskRead(d *schema.ResourceData, meta interface{}) er
 	client := meta.(*VSphereClient).vimClient
 
 	vDisk := virtualDisk{
-		size: d.Get("size").(int),
+		size: d.Get("size").(int64),
 	}
 
 	if v, ok := d.GetOk("vmdk_path"); ok {
@@ -283,7 +283,7 @@ func resourceVSphereVirtualDiskRead(d *schema.ResourceData, meta interface{}) er
 
 	fileInfo := res.File[0]
 	log.Printf("[DEBUG] resourceVSphereVirtualDiskRead - fileinfo: %#v", fileInfo)
-	size := fileInfo.(*types.VmDiskFileInfo).CapacityKb / 1024 / 1024
+	size := fileInfo.(*types.VmDiskFileInfo).CapacityKb
 
 	d.SetId(vDisk.vmdkPath)
 
@@ -348,7 +348,7 @@ func isAlreadyExists(err error) bool {
 }
 
 // createHardDisk creates a new Hard Disk.
-func createHardDisk(client *govmomi.Client, size int, diskPath string, diskType string, adapterType string, dc string) error {
+func createHardDisk(client *govmomi.Client, size int64, diskPath string, diskType string, adapterType string, dc string) error {
 	var vDiskType string
 	switch diskType {
 	case "thin":
@@ -365,7 +365,7 @@ func createHardDisk(client *govmomi.Client, size int, diskPath string, diskType 
 			AdapterType: adapterType,
 			DiskType:    vDiskType,
 		},
-		CapacityKb: int64(1024 * 1024 * size),
+		CapacityKb: size,
 	}
 	datacenter, err := getDatacenter(client, dc)
 	if err != nil {

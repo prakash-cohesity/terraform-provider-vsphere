@@ -178,7 +178,7 @@ func DiskSubresourceSchema() map[string]*schema.Schema {
 		"size": {
 			Type:         schema.TypeInt,
 			Optional:     true,
-			Description:  "The size of the disk, in GB.",
+			Description:  "The size of the disk, in KB.",
 			ValidateFunc: validation.IntAtLeast(1),
 		},
 
@@ -769,7 +769,7 @@ func DiskCloneValidateOperation(d *schema.ResourceDiff, c *govmomi.Client, l obj
 		case linked:
 			switch {
 			case sourceSize != targetSize:
-				return fmt.Errorf("%s: disk name %s must be the exact size of source when using linked_clone (expected: %d GiB)", tr.Addr(), targetName, sourceSize)
+				return fmt.Errorf("%s: disk name %s must be the exact size of source when using linked_clone (expected: %d KiB)", tr.Addr(), targetName, sourceSize)
 			case sourceThin != targetThin:
 				return fmt.Errorf("%s: disk name %s must have same value for thin_provisioned as source when using linked_clone (expected: %t)", tr.Addr(), targetName, sourceThin)
 			case sourceEager != targetEager:
@@ -777,7 +777,7 @@ func DiskCloneValidateOperation(d *schema.ResourceDiff, c *govmomi.Client, l obj
 			}
 		default:
 			if sourceSize > targetSize {
-				return fmt.Errorf("%s: disk name %s must be at least the same size of source when cloning (expected: >= %d GiB)", tr.Addr(), targetName, sourceSize)
+				return fmt.Errorf("%s: disk name %s must be at least the same size of source when cloning (expected: >= %d KiB)", tr.Addr(), targetName, sourceSize)
 			}
 		}
 
@@ -1138,7 +1138,7 @@ func ReadDiskAttrsForDataSource(l object.VirtualDeviceList, count int) ([]map[st
 		if backing.ThinProvisioned != nil {
 			thin = *backing.ThinProvisioned
 		}
-		m["size"] = diskCapacityInGiB(disk)
+		m["size"] = diskCapacityInGiB(disk) * 1024 * 1024
 		m["eagerly_scrub"] = eager
 		m["thin_provisioned"] = thin
 		out = append(out, m)
@@ -1242,7 +1242,7 @@ func (r *DiskSubresource) Read(l object.VirtualDeviceList) error {
 			return fmt.Errorf("could not parse path from filename: %s", b.FileName)
 		}
 		r.Set("path", dp.Path)
-		r.Set("size", diskCapacityInGiB(disk))
+		r.Set("size", diskCapacityInGiB(disk)*1024*1024)
 	}
 
 	if allocation := disk.StorageIOAllocation; allocation != nil {
@@ -1407,10 +1407,6 @@ func (r *DiskSubresource) DiffExisting() error {
 		return fmt.Errorf("virtual disk %q: %s", name, err)
 	}
 	if _, err = r.GetWithVeto("thin_provisioned"); err != nil {
-		return fmt.Errorf("virtual disk %q: %s", name, err)
-	}
-	// Same with attach
-	if _, err = r.GetWithVeto("attach"); err != nil {
 		return fmt.Errorf("virtual disk %q: %s", name, err)
 	}
 
@@ -1611,7 +1607,9 @@ func (r *DiskSubresource) expandDiskSettings(disk *types.VirtualDisk) error {
 		if os.(int) > ns.(int) {
 			return fmt.Errorf("virtual disks cannot be shrunk")
 		}
-		disk.CapacityInBytes = structure.GiBToByte(ns.(int))
+
+		// We now pass the size of the disk in KiB
+		disk.CapacityInBytes = structure.KiBToByte(ns.(int))
 		disk.CapacityInKB = disk.CapacityInBytes / 1024
 	}
 
