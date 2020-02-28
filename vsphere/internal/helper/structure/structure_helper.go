@@ -349,6 +349,18 @@ func KiBToByte(n interface{}) float64 {
 
 // KiBToByte returns n*1024.
 //
+// The output is returned as float64 - if another type is needed, it needs to be
+// cast.
+func KiBToByte(n interface{}) float64 {
+	switch v := n.(type) {
+	case float64:
+		return float64(v * float64(1024))
+	}
+	panic(fmt.Errorf("non-integer type %T for value", n))
+}
+
+// KiBToByte returns n*1024.
+//
 // The output is returned as int64 - if another type is needed, it needs to be
 // cast. Remember that int32 overflows at around 2GiB and uint32 will overflow at 4GiB.
 func KiBToByte(n interface{}) float64 {
