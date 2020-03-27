@@ -282,6 +282,11 @@ func schemaVirtualMachineConfigSpec() map[string]*schema.Schema {
 			Default:     "vmx-14",
 			Description: "The hardware compatibility version of the VM.",
 		},
+		"instance_uuid": {
+			Type:        schema.TypeString,
+			Computed:    true,
+			Description: "The instance UUID of the virtual machine. Uniquily identifies a virtual machine.",
+		},
 	}
 	structure.MergeSchema(s, schemaVirtualMachineResourceAllocation())
 	return s
@@ -818,6 +823,7 @@ func flattenVirtualMachineConfigInfo(d *schema.ResourceData, obj *types.VirtualM
 	d.Set("change_version", obj.ChangeVersion)
 	d.Set("uuid", obj.Uuid)
 	d.Set("compatibility_version", obj.Version)
+	d.Set("instance_uuid", obj.InstanceUuid)
 
 	if err := flattenToolsConfigInfo(d, obj.Tools); err != nil {
 		return err
