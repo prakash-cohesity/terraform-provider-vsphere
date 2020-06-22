@@ -247,12 +247,13 @@ func resourceVSphereVirtualMachineCreate(d *schema.ResourceData, meta interface{
 	client := meta.(*VSphereClient).vimClient
 	tagsClient, err := tagsClientIfDefined(d, meta)
 	if err != nil {
-		return err
+		return setErrorInResource(d, err)
 	}
+
 	// Verify a proper vCenter before proceeding if custom attributes are defined
 	attrsProcessor, err := customattribute.GetDiffProcessorIfAttributesDefined(client, d)
 	if err != nil {
-		return err
+		return setErrorInResource(d, err)
 	}
 
 	var vm *object.VirtualMachine
@@ -269,21 +270,21 @@ func resourceVSphereVirtualMachineCreate(d *schema.ResourceData, meta interface{
 	}
 
 	if err != nil {
-		return err
+		return setErrorInResource(d, err)
 	}
 
 	// Tag the VM
 	if tagsClient != nil {
-		if err := processTagDiff(tagsClient, d, vm); err != nil {
-			return err
-		}
+        if err := processTagDiff(tagsClient, d, vm); err != nil {
+		    return setErrorInResource(d, err)
+	    }
 	}
 
 	// Set custom attributes
 	if attrsProcessor != nil {
-		if err := attrsProcessor.ProcessDiff(vm); err != nil {
-			return err
-		}
+        if err := attrsProcessor.ProcessDiff(vm); err != nil {
+		    return setErrorInResource(d, err)
+	    }
 	}
 
 	// The host attribute of CreateVM_Task seems to be ignored in vCenter 6.7.
@@ -292,22 +293,23 @@ func resourceVSphereVirtualMachineCreate(d *schema.ResourceData, meta interface{
 	// ResourceData.
 	vprops, err := virtualmachine.Properties(vm)
 	if err != nil {
-		return err
+	    return setErrorInResource(d, err)
 	}
+
 	if hid, ok := d.GetOk("host_system_id"); hid.(string) != vprops.Runtime.Host.Reference().Value && ok {
 		err = resourceVSphereVirtualMachineRead(d, meta)
-		if err != nil {
-			return err
-		}
+	    if err != nil {
+		    return setErrorInResource(d, err)
+	    }
 		// Restore the old host_system_id so we can still tell if a relocation is
 		// necessary.
 		err = d.Set("host_system_id", hid.(string))
-		if err != nil {
-			return err
-		}
-		if err = resourceVSphereVirtualMachineUpdateLocation(d, meta); err != nil {
-			return err
-		}
+	    if err != nil {
+		    return setErrorInResource(d, err)
+	    }
+        if err = resourceVSphereVirtualMachineUpdateLocation(d, meta); err != nil {
+		    return setErrorInResource(d, err)
+	    }
 	}
 
 	// Wait for guest IP address if we have been set to wait for one
@@ -318,7 +320,7 @@ func resourceVSphereVirtualMachineCreate(d *schema.ResourceData, meta interface{
 		d.Get("ignored_guest_ips").([]interface{}),
 	)
 	if err != nil {
-		return err
+	    return setErrorInResource(d, err)
 	}
 
 	// Wait for a routable address if we have been set to wait for one
@@ -330,12 +332,19 @@ func resourceVSphereVirtualMachineCreate(d *schema.ResourceData, meta interface{
 		d.Get("ignored_guest_ips").([]interface{}),
 	)
 	if err != nil {
-		return err
+	    return setErrorInResource(d, err)
 	}
 
 	// All done!
 	log.Printf("[DEBUG] %s: Create complete", resourceVSphereVirtualMachineIDString(d))
-	return resourceVSphereVirtualMachineRead(d, meta)
+    err = resourceVSphereVirtualMachineRead(d, meta)
+	if err != nil {
+	    return setErrorInResource(d, err)
+	}
+
+    // Clear error message in case of no error.
+    d.Set("error_message", "")
+	return nil
 }
 
 func resourceVSphereVirtualMachineRead(d *schema.ResourceData, meta interface{}) error {
@@ -477,59 +486,62 @@ func resourceVSphereVirtualMachineUpdate(d *schema.ResourceData, meta interface{
 	client := meta.(*VSphereClient).vimClient
 	tagsClient, err := tagsClientIfDefined(d, meta)
 	if err != nil {
-		return err
+	    return setErrorInResource(d, err)
 	}
+
 	// Verify a proper vCenter before proceeding if custom attributes are defined
 	attrsProcessor, err := customattribute.GetDiffProcessorIfAttributesDefined(client, d)
 	if err != nil {
-		return err
+	    return setErrorInResource(d, err)
 	}
 
 	id := d.Id()
 	vm, err := virtualmachine.FromUUID(client, id)
 	if err != nil {
-		return fmt.Errorf("cannot locate virtual machine with UUID %q: %s", id, err)
+	    return setErrorInResource(d, fmt.Errorf("cannot locate virtual machine with UUID %q: %s", id, err))
 	}
 
 	if d.HasChange("resource_pool_id") {
 		var rp *object.ResourcePool
 		rp, err = resourcepool.FromID(client, d.Get("resource_pool_id").(string))
-		if err != nil {
-			return err
-		}
-		if err = resourcepool.MoveIntoResourcePool(rp, vm.Reference()); err != nil {
-			return err
-		}
+	    if err != nil {
+	        return setErrorInResource(d, err)
+	    }
+
+        if err = resourcepool.MoveIntoResourcePool(rp, vm.Reference()); err != nil {
+	        return setErrorInResource(d, err)
+	    }
+
 		// If a VM is moved into or out of a vApp container, the VM's InventoryPath
 		// will change. This can affect steps later in the update process such as
 		// moving folders. To make sure the VM has the correct InventoryPath,
 		// refresh the VM after moving into a new resource pool.
 		vm, err = virtualmachine.FromMOID(client, vm.Reference().Value)
-		if err != nil {
-			return err
-		}
+	    if err != nil {
+	        return setErrorInResource(d, err)
+	    }
 	}
 
 	// Update folder if necessary
 	if d.HasChange("folder") && !vappcontainer.IsVApp(client, d.Get("resource_pool_id").(string)) {
 		folder := d.Get("folder").(string)
-		if err := virtualmachine.MoveToFolder(client, vm, folder); err != nil {
-			return fmt.Errorf("could not move virtual machine to folder %q: %s", folder, err)
+        if err := virtualmachine.MoveToFolder(client, vm, folder); err != nil {
+	        return setErrorInResource(d, fmt.Errorf("could not move virtual machine to folder %q: %s", folder, err))
 		}
 	}
 
 	// Apply any pending tags
 	if tagsClient != nil {
-		if err := processTagDiff(tagsClient, d, vm); err != nil {
-			return err
-		}
+        if err := processTagDiff(tagsClient, d, vm); err != nil {
+	        return setErrorInResource(d, err)
+	    }
 	}
 
 	// Update custom attributes
 	if attrsProcessor != nil {
-		if err := attrsProcessor.ProcessDiff(vm); err != nil {
-			return err
-		}
+        if err := attrsProcessor.ProcessDiff(vm); err != nil {
+	        return setErrorInResource(d, err)
+	    }
 	}
 
 	// Ready to start the VM update. All changes from here, until the update
@@ -538,18 +550,19 @@ func resourceVSphereVirtualMachineUpdate(d *schema.ResourceData, meta interface{
 
 	vprops, err := virtualmachine.Properties(vm)
 	if err != nil {
-		return fmt.Errorf("error fetching VM properties: %s", err)
+	    return setErrorInResource(d, fmt.Errorf("error fetching VM properties: %s", err))
 	}
 
 	spec, changed, err := expandVirtualMachineConfigSpecChanged(d, client, vprops.Config)
 	if err != nil {
-		return fmt.Errorf("error in virtual machine configuration: %s", err)
+	    return setErrorInResource(d, fmt.Errorf("error in virtual machine configuration: %s", err))
 	}
 
 	devices := object.VirtualDeviceList(vprops.Config.Hardware.Device)
-	if spec.DeviceChange, err = applyVirtualDevices(d, client, devices); err != nil {
-		return err
+    if spec.DeviceChange, err = applyVirtualDevices(d, client, devices); err != nil {
+	    return setErrorInResource(d, err)
 	}
+
 	// Only carry out the reconfigure if we actually have a change to process.
 	if changed || len(spec.DeviceChange) > 0 {
 		//Check to see if we need to shutdown the VM for this process.
@@ -557,9 +570,9 @@ func resourceVSphereVirtualMachineUpdate(d *schema.ResourceData, meta interface{
 			// Attempt a graceful shutdown of this process. We wrap this in a VM helper.
 			timeout := d.Get("shutdown_wait_timeout").(int)
 			force := d.Get("force_power_off").(bool)
-			if err := virtualmachine.GracefulPowerOff(client, vm, timeout, force); err != nil {
-				return fmt.Errorf("error shutting down virtual machine: %s", err)
-			}
+            if err := virtualmachine.GracefulPowerOff(client, vm, timeout, force); err != nil {
+	            return setErrorInResource(d, fmt.Errorf("error shutting down virtual machine: %s", err))
+	        }
 		}
 		// Perform updates.
 		if _, ok := d.GetOk("datastore_cluster_id"); ok {
@@ -568,17 +581,18 @@ func resourceVSphereVirtualMachineUpdate(d *schema.ResourceData, meta interface{
 			err = virtualmachine.Reconfigure(vm, spec)
 		}
 		if err != nil {
-			return fmt.Errorf("error reconfiguring virtual machine: %s", err)
+	        return setErrorInResource(d, fmt.Errorf("error reconfiguring virtual machine: %s", err))
 		}
+
 		// Re-fetch properties
 		vprops, err = virtualmachine.Properties(vm)
 		if err != nil {
-			return fmt.Errorf("error re-fetching VM properties after update: %s", err)
+	        return setErrorInResource(d, fmt.Errorf("error re-fetching VM properties after update: %s", err))
 		}
 		// Power back on the VM, and wait for network if necessary.
 		if vprops.Runtime.PowerState != types.VirtualMachinePowerStatePoweredOn {
 			if err := virtualmachine.PowerOn(vm); err != nil {
-				return fmt.Errorf("error powering on virtual machine: %s", err)
+	            return setErrorInResource(d, fmt.Errorf("error powering on virtual machine: %s", err))
 			}
 			err = virtualmachine.WaitForGuestIP(
 				client,
@@ -587,7 +601,7 @@ func resourceVSphereVirtualMachineUpdate(d *schema.ResourceData, meta interface{
 				d.Get("ignored_guest_ips").([]interface{}),
 			)
 			if err != nil {
-				return err
+	            return setErrorInResource(d, err)
 			}
 			err = virtualmachine.WaitForGuestNet(
 				client,
@@ -597,7 +611,7 @@ func resourceVSphereVirtualMachineUpdate(d *schema.ResourceData, meta interface{
 				d.Get("ignored_guest_ips").([]interface{}),
 			)
 			if err != nil {
-				return err
+	            return setErrorInResource(d, err)
 			}
 		}
 	}
@@ -609,12 +623,19 @@ func resourceVSphereVirtualMachineUpdate(d *schema.ResourceData, meta interface{
 	// need to be migrated have been deleted), proceed with vMotion if we have
 	// one pending.
 	if err := resourceVSphereVirtualMachineUpdateLocation(d, meta); err != nil {
-		return fmt.Errorf("error running VM migration: %s", err)
+	    return setErrorInResource(d, fmt.Errorf("error running VM migration: %s", err))
 	}
 
 	// All done with updates.
 	log.Printf("[DEBUG] %s: Update complete", resourceVSphereVirtualMachineIDString(d))
-	return resourceVSphereVirtualMachineRead(d, meta)
+    err = resourceVSphereVirtualMachineRead(d, meta)
+	if err != nil {
+	    return setErrorInResource(d, err)
+	}
+
+    // Clear error message in case of no error.
+    d.Set("error_message", "")
+	return nil
 }
 
 // resourceVSphereVirtualMachineUpdateReconfigureWithSDRS runs the reconfigure
@@ -1492,4 +1513,10 @@ func applyVirtualDevices(d *schema.ResourceData, c *govmomi.Client, l object.Vir
 // vsphere_virtual_machine resource.
 func resourceVSphereVirtualMachineIDString(d structure.ResourceIDStringer) string {
 	return structure.ResourceIDString(d, "vsphere_virtual_machine")
+}
+
+// Set error message in the resource property if there was an error creating the VM.
+func setErrorInResource(d *schema.ResourceData, err error) error {
+    d.Set("error_message", err.Error())
+	return err
 }

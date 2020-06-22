@@ -287,6 +287,11 @@ func schemaVirtualMachineConfigSpec() map[string]*schema.Schema {
 			Computed:    true,
 			Description: "The instance UUID of the virtual machine. Uniquily identifies a virtual machine.",
 		},
+		"error_message": {
+			Type:        schema.TypeString,
+			Computed:    true,
+			Description: "Error while creating/updating this resource.",
+		},
 	}
 	structure.MergeSchema(s, schemaVirtualMachineResourceAllocation())
 	return s
