@@ -3,6 +3,7 @@ package vmworkflow
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"regexp"
 
@@ -451,6 +452,23 @@ func expandCustomizationIPSettings(d *schema.ResourceData, n int, v4gwAdd, v6gwA
 	obj.DnsDomain = d.Get(netifKey("dns_domain", n, prefix)).(string)
 	obj.IpV6Spec, v6gwFound = expandCustomizationIPSettingsIPV6AddressSpec(d, n, v6gwAdd, prefix)
 	return obj, v4gwFound, v6gwFound
+}
+
+// Returns the ipv4 address provided in the customize block.
+func GetCustomIPFromSpec(d *schema.ResourceData, prefix string) string {
+	log.Print("[DEBUG] fetching ip address.")
+	s := d.Get(prefix + cKeyPrefix + "." + "network_interface").([]interface{})
+	if len(s) < 1 {
+		return ""
+	}
+
+	v4addr, v4addrOk := d.GetOk(netifKey("ipv4_address", 0, prefix))
+	if v4addrOk {
+		log.Printf("[DEBUG] Found v4addrok: true. Returning address %s", v4addr.(string))
+		return v4addr.(string)
+	}
+
+	return ""
 }
 
 // expandSliceOfCustomizationAdapterMapping reads certain ResourceData keys and
