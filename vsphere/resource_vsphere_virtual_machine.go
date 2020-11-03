@@ -465,10 +465,20 @@ func resourceVSphereVirtualMachineRead(d *schema.ResourceData, meta interface{})
 		return err
 	}
 
-	// Read tags if we have the ability to do so
-	if tagsClient, _ := meta.(*VSphereClient).TagsClient(); tagsClient != nil {
-		if err := readTagsForResource(tagsClient, vm, d); err != nil {
-			return err
+	// Skipping the read tags operation as we have seen timeouts if there are long
+	// running operations like vMotion. Error observed
+	// Error: Get unexpected status code: 400: Error response from vCloud Suite API:
+	// {"type":"com.vmware.vapi.std.errors.invalid_argument","value":{"messages":[{"args":["com.vmware.cis.tagging.tag_association.list_attached_tags"],"default_message":"Unable
+	// to validate input to method
+	// com.vmware.cis.tagging.tag_association.list_attached_tags","id":"vapi.invoke.input.invalid"},{"args":["operation-input","object_id"],"default_message":"Structure
+	// 'operation-input' is missing a field: object_id","id":"vapi.data.structure.field.missing"}]}}
+	// TODO(Mradul): Upgrade the vsphere provider and see if the issue still exists.
+	if false {
+		// Read tags if we have the ability to do so
+		if tagsClient, _ := meta.(*VSphereClient).TagsClient(); tagsClient != nil {
+			if err := readTagsForResource(tagsClient, vm, d); err != nil {
+				return err
+			}
 		}
 	}
 
