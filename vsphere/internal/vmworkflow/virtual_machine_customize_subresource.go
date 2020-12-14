@@ -115,7 +115,11 @@ func VirtualMachineCustomizeSchema() map[string]*schema.Schema {
 		// for the VM. We do not use the windows_options as it syspreps the machine and
 		// changes the identity of the machine. TODO(Mradul): Take only the source path
 		// and compute the other options from the VM resource definition.
-		"cohesity_windows_customization_otions": {
+		//
+		// Note: This schema is similar to schema in resource_vsphere_file.go.
+		// source_file.ForceNew has been set to false, otherwise the existing
+		// resource is replaced with a new one.
+		"cohesity_windows_customization_options": {
 			Type:          schema.TypeList,
 			Optional:      true,
 			MaxItems:      1,
