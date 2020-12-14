@@ -1054,45 +1054,45 @@ func resourceVSphereVirtualMachineCreateBare(d *schema.ResourceData, meta interf
 	// Send customization spec if any has been defined.
 	if len(d.Get("customize").([]interface{})) > 0 {
 		if _, ok := d.GetOk("customize.0.cohesity_windows_customization_otions"); ok {
-			if _, ok := d.GetOk("extra_config.0.tools.deployPkg.fileName"); !ok {
+			if _, ok := d.GetOk("extra_config"); !ok {
 				return nil, fmt.Errorf("extra_config not set")
 			}
 
 			f := file{}
 
-			if v, ok := d.GetOk("customize.0.cohesity_file_copy_otions.0.source_datacenter"); ok {
+			if v, ok := d.GetOk("customize.0.cohesity_windows_customization_otions.0.source_datacenter"); ok {
 				f.sourceDatacenter = v.(string)
 				f.copyFile = true
 			}
 
-			if v, ok := d.GetOk("customize.0.cohesity_file_copy_otions.0.datacenter"); ok {
+			if v, ok := d.GetOk("customize.0.cohesity_windows_customization_otions.0.datacenter"); ok {
 				f.datacenter = v.(string)
 			}
 
-			if v, ok := d.GetOk("customize.0.cohesity_file_copy_otions.0.source_datastore"); ok {
+			if v, ok := d.GetOk("customize.0.cohesity_windows_customization_otions.0.source_datastore"); ok {
 				f.sourceDatastore = v.(string)
 				f.copyFile = true
 			}
 
-			if v, ok := d.GetOk("customize.0.cohesity_file_copy_otions.0.datastore"); ok {
+			if v, ok := d.GetOk("customize.0.cohesity_windows_customization_otions.0.datastore"); ok {
 				f.datastore = v.(string)
 			} else {
 				return nil, fmt.Errorf("datastore argument is required")
 			}
 
-			if v, ok := d.GetOk("customize.0.cohesity_file_copy_otions.0.source_file"); ok {
+			if v, ok := d.GetOk("customize.0.cohesity_windows_customization_otions.0.source_file"); ok {
 				f.sourceFile = v.(string)
 			} else {
 				return nil, fmt.Errorf("source_file argument is required")
 			}
 
-			if v, ok := d.GetOk("customize.0.cohesity_file_copy_otions.0.destination_file"); ok {
+			if v, ok := d.GetOk("customize.0.cohesity_windows_customization_otions.0.destination_file"); ok {
 				f.destinationFile = v.(string)
 			} else {
 				return nil, fmt.Errorf("destination_file argument is required")
 			}
 
-			if v, ok := d.GetOk("customize.0.cohesity_file_copy_otions.0.create_directories"); ok {
+			if v, ok := d.GetOk("customize.0.cohesity_windows_customization_otions.0.create_directories"); ok {
 				f.createDirectories = v.(bool)
 			}
 

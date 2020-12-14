@@ -147,7 +147,7 @@ func VirtualMachineCustomizeSchema() map[string]*schema.Schema {
 				"source_file": {
 					Type:     schema.TypeString,
 					Required: true,
-					ForceNew: true,
+					ForceNew: false,
 				},
 
 				"destination_file": {
