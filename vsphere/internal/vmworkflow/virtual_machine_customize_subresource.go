@@ -109,6 +109,59 @@ func VirtualMachineCustomizeSchema() map[string]*schema.Schema {
 			}},
 		},
 
+		// This is the spec of resource_vsphere_file.To customize a windows machine we
+		// copy the cabinet file inside the VM. This file should be present inside the
+		// vm folder. So when the vm is created we check if there are any customization
+		// for the VM. We do not use the windows_options as it syspreps the machine and
+		// changes the identity of the machine. TODO(Mradul): Take only the source path
+		// and compute the other options from the VM resource definition.
+		"cohesity_windows_customization_otions": {
+			Type:          schema.TypeList,
+			Optional:      true,
+			MaxItems:      1,
+			ConflictsWith: []string{cKeyPrefix + "." + "windows_options", cKeyPrefix + "." + "windows_sysprep_text", cKeyPrefix + "." + "linux_options"},
+			Description:   "Customization of windows vm in cohesity",
+			Elem: &schema.Resource{Schema: map[string]*schema.Schema{
+				"datacenter": {
+					Type:     schema.TypeString,
+					Optional: true,
+				},
+
+				"source_datacenter": {
+					Type:     schema.TypeString,
+					Optional: true,
+					ForceNew: true,
+				},
+
+				"datastore": {
+					Type:     schema.TypeString,
+					Required: true,
+				},
+
+				"source_datastore": {
+					Type:     schema.TypeString,
+					Optional: true,
+					ForceNew: true,
+				},
+
+				"source_file": {
+					Type:     schema.TypeString,
+					Required: true,
+					ForceNew: true,
+				},
+
+				"destination_file": {
+					Type:     schema.TypeString,
+					Required: true,
+				},
+
+				"create_directories": {
+					Type:     schema.TypeBool,
+					Optional: true,
+				},
+			}},
+		},
+
 		// CustomizationSysprep
 		"windows_options": {
 			Type:          schema.TypeList,

@@ -1053,19 +1053,69 @@ func resourceVSphereVirtualMachineCreateBare(d *schema.ResourceData, meta interf
 	var cw *virtualMachineCustomizationWaiter
 	// Send customization spec if any has been defined.
 	if len(d.Get("customize").([]interface{})) > 0 {
-		family, err := resourcepool.OSFamily(client, pool, d.Get("guest_id").(string))
-		if err != nil {
-			return nil, fmt.Errorf("cannot find OS family for guest ID %q: %s", d.Get("guest_id").(string), err)
-		}
-		custSpec := vmworkflow.ExpandCustomizationSpec(d, family, "")
-		cw = newVirtualMachineCustomizationWaiter(client, vm, d.Get("customize.0.timeout").(int))
-		if err := virtualmachine.Customize(vm, custSpec); err != nil {
-			// Roll back the VMs as per the error handling in reconfigure.
-			if derr := resourceVSphereVirtualMachineDelete(d, meta); derr != nil {
-				return nil, fmt.Errorf(formatVirtualMachinePostCloneRollbackError, vm.InventoryPath, err, derr)
+		if _, ok := d.GetOk("customize.0.cohesity_windows_customization_otions"); ok {
+			if _, ok := d.GetOk("extra_config.0.tools.deployPkg.fileName"); !ok {
+				return nil, fmt.Errorf("extra_config not set")
 			}
-			d.SetId("")
-			return nil, fmt.Errorf("error sending customization spec: %s", err)
+
+			f := file{}
+
+			if v, ok := d.GetOk("customize.0.cohesity_file_copy_otions.0.source_datacenter"); ok {
+				f.sourceDatacenter = v.(string)
+				f.copyFile = true
+			}
+
+			if v, ok := d.GetOk("customize.0.cohesity_file_copy_otions.0.datacenter"); ok {
+				f.datacenter = v.(string)
+			}
+
+			if v, ok := d.GetOk("customize.0.cohesity_file_copy_otions.0.source_datastore"); ok {
+				f.sourceDatastore = v.(string)
+				f.copyFile = true
+			}
+
+			if v, ok := d.GetOk("customize.0.cohesity_file_copy_otions.0.datastore"); ok {
+				f.datastore = v.(string)
+			} else {
+				return nil, fmt.Errorf("datastore argument is required")
+			}
+
+			if v, ok := d.GetOk("customize.0.cohesity_file_copy_otions.0.source_file"); ok {
+				f.sourceFile = v.(string)
+			} else {
+				return nil, fmt.Errorf("source_file argument is required")
+			}
+
+			if v, ok := d.GetOk("customize.0.cohesity_file_copy_otions.0.destination_file"); ok {
+				f.destinationFile = v.(string)
+			} else {
+				return nil, fmt.Errorf("destination_file argument is required")
+			}
+
+			if v, ok := d.GetOk("customize.0.cohesity_file_copy_otions.0.create_directories"); ok {
+				f.createDirectories = v.(bool)
+			}
+
+			err := createFile(client, &f)
+			if err != nil {
+				return nil, err
+			}
+			log.Printf("[DEBUG] Cabinet file copied successfully.")
+		} else {
+			family, err := resourcepool.OSFamily(client, pool, d.Get("guest_id").(string))
+			if err != nil {
+				return nil, fmt.Errorf("cannot find OS family for guest ID %q: %s", d.Get("guest_id").(string), err)
+			}
+			custSpec := vmworkflow.ExpandCustomizationSpec(d, family, "")
+			cw = newVirtualMachineCustomizationWaiter(client, vm, d.Get("customize.0.timeout").(int))
+			if err := virtualmachine.Customize(vm, custSpec); err != nil {
+				// Roll back the VMs as per the error handling in reconfigure.
+				if derr := resourceVSphereVirtualMachineDelete(d, meta); derr != nil {
+					return nil, fmt.Errorf(formatVirtualMachinePostCloneRollbackError, vm.InventoryPath, err, derr)
+				}
+				d.SetId("")
+				return nil, fmt.Errorf("error sending customization spec: %s", err)
+			}
 		}
 	}
 
